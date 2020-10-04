@@ -7,18 +7,26 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Configuration;
 
 namespace KeepWifiConnected
 {
     class Program
     {
 
-        const int TimeRecheck = 10;
-        const string fileLogName = @"KeepWifiConnected.log";
-        const string urlRequest = @"http://google.com/generate_204";
+        static int timeRecheck = 0;
+        static int timeoutRequest = 0;
+        static string fileLogName = @"";
+        static string urlRequest = @"";
 
         static void Main()
         {
+            if (!SetConfig())
+            {
+                Log("Errors in .config");
+                Thread.Sleep(10000);
+                return;
+            }
             Log("Start");
             while (true)
             {
@@ -41,7 +49,7 @@ namespace KeepWifiConnected
                 {
                     Log("No Wifi Network");
                 }
-                Thread.Sleep(TimeRecheck * 1000);
+                Thread.Sleep(timeRecheck);
             }
 
         }
@@ -74,8 +82,9 @@ namespace KeepWifiConnected
         {
             try
             {
-                using (var client = new WebClient())
-                using (client.OpenRead(urlRequest))
+                WebRequest myWebRequest = WebRequest.Create(urlRequest);
+                myWebRequest.Timeout = timeoutRequest;
+                using (WebResponse myWebResponse = myWebRequest.GetResponse())
                 {
                     return true;
                 }
@@ -126,7 +135,7 @@ namespace KeepWifiConnected
                     WifiDisconnect();
                     WifiConnect(wifiNetworkName);
                 }
-                
+
             }
             catch { }
         }
@@ -135,13 +144,30 @@ namespace KeepWifiConnected
         {
             try
             {
-                string fileLogPath = Path.Combine(Directory.GetCurrentDirectory(), fileLogName);
                 string content = DateTime.Now + ": " + message;
                 Console.WriteLine(content);
-                File.AppendAllText(fileLogPath, content);
-                File.AppendAllText(fileLogPath, Environment.NewLine);
+                if (fileLogName.Trim() != "")
+                {
+                    string fileLogPath = Path.Combine(Directory.GetCurrentDirectory(), fileLogName);
+                    File.AppendAllText(fileLogPath, content);
+                    File.AppendAllText(fileLogPath, Environment.NewLine);
+
+                }
             }
             catch { }
+        }
+
+        static bool SetConfig()
+        {
+            timeRecheck = Convert.ToInt32(ConfigurationManager.AppSettings["TimeRecheck"]);
+            timeoutRequest = Convert.ToInt32(ConfigurationManager.AppSettings["TimeoutRequest"]);
+            fileLogName = ConfigurationManager.AppSettings["FileLogName"];
+            urlRequest = ConfigurationManager.AppSettings["UrlRequest"];
+            if (timeRecheck == 0 || timeoutRequest == 0 || urlRequest == "" || urlRequest == null)
+            {
+                return false;
+            }
+            return true;
         }
 
     }
